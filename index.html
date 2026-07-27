@@ -1,0 +1,1307 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="金属价格工作台">
+<meta name="theme-color" content="#0f1923">
+<link rel="manifest" href="./manifest.json">
+<link rel="apple-touch-icon" href="./icon-192.png">
+<title>金属价格分析工作台</title>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+<style>
+:root {
+  --bg: #0f1923;
+  --card-bg: #1a2634;
+  --card-border: #2a3a4a;
+  --primary: #4fc3f7;
+  --accent: #ffb74d;
+  --up: #ef5350;
+  --down: #26a69a;
+  --flat: #78909c;
+  --text: #e0e0e0;
+  --text-dim: #90a4ae;
+  --text-bright: #ffffff;
+  --silver: #c0c0c0;
+  --aluminum: #b0bec5;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.5;
+  padding-bottom: 60px;
+  -webkit-font-smoothing: antialiased;
+}
+
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: linear-gradient(135deg, #1a2634, #0f1923);
+  border-bottom: 1px solid var(--card-border);
+  padding: 12px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.header h1 { font-size: 17px; color: var(--text-bright); font-weight: 600; }
+.header .time { font-size: 11px; color: var(--text-dim); }
+
+.container { padding: 12px; max-width: 600px; margin: 0 auto; }
+
+.card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  padding: 14px;
+  margin-bottom: 12px;
+}
+
+.card-title {
+  font-size: 13px;
+  color: var(--text-dim);
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.card-title .badge { font-size: 10px; padding: 2px 8px; border-radius: 10px; background: #2a3a4a; color: var(--text-dim); }
+
+/* 价格卡片 */
+.price-card { position: relative; overflow: hidden; }
+.price-card.silver::before, .price-card.aluminum::before {
+  content: ''; position: absolute; top: 0; left: 0; width: 4px; height: 100%;
+}
+.price-card.silver::before { background: var(--silver); }
+.price-card.aluminum::before { background: var(--aluminum); }
+
+.price-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
+.price-name { font-size: 16px; font-weight: 600; color: var(--text-bright); }
+.price-code { font-size: 11px; color: var(--text-dim); }
+
+.price-value { font-size: 30px; font-weight: 700; letter-spacing: -1px; }
+.price-value.up { color: var(--up); }
+.price-value.down { color: var(--down); }
+.price-value.flat { color: var(--flat); }
+
+.price-change { font-size: 13px; margin-top: 4px; }
+.price-change.up { color: var(--up); }
+.price-change.down { color: var(--down); }
+
+.price-meta { display: flex; gap: 16px; margin-top: 10px; font-size: 11px; color: var(--text-dim); }
+.price-meta span b { color: var(--text); font-weight: 500; }
+
+/* Tab导航 */
+.tabs {
+  display: flex;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 10px;
+  margin-bottom: 12px;
+  overflow: hidden;
+}
+.tab {
+  flex: 1;
+  padding: 10px 4px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: all 0.2s;
+  border-bottom: 2px solid transparent;
+}
+.tab.active { color: var(--primary); border-bottom-color: var(--primary); background: rgba(79,195,247,0.08); }
+
+/* 图表 */
+.chart-container { width: 100%; height: 280px; }
+
+.range-selector {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.range-btn {
+  flex: 1;
+  padding: 6px 0;
+  text-align: center;
+  font-size: 11px;
+  color: var(--text-dim);
+  background: #2a3a4a;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.range-btn.active { background: var(--primary); color: #000; font-weight: 600; }
+
+/* 影响因素 */
+.factor-item {
+  display: flex;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--card-border);
+}
+.factor-item:last-child { border-bottom: none; }
+.factor-icon {
+  width: 32px; height: 32px;
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px; flex-shrink: 0;
+}
+.factor-content { flex: 1; }
+.factor-name { font-size: 13px; color: var(--text-bright); font-weight: 500; margin-bottom: 3px; }
+.factor-desc { font-size: 11px; color: var(--text-dim); line-height: 1.5; }
+.factor-impact {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 8px;
+  display: inline-block;
+  margin-top: 4px;
+}
+.factor-impact.up { background: rgba(239,83,80,0.15); color: var(--up); }
+.factor-impact.down { background: rgba(38,166,154,0.15); color: var(--down); }
+.factor-impact.neutral { background: rgba(120,144,156,0.15); color: var(--flat); }
+
+/* 采购建议 */
+.advice-box {
+  padding: 14px;
+  border-radius: 10px;
+  margin-bottom: 10px;
+}
+.advice-box.buy { background: linear-gradient(135deg, rgba(38,166,154,0.15), rgba(38,166,154,0.05)); border: 1px solid rgba(38,166,154,0.3); }
+.advice-box.wait { background: linear-gradient(135deg, rgba(255,183,77,0.15), rgba(255,183,77,0.05)); border: 1px solid rgba(255,183,77,0.3); }
+.advice-box.hold { background: linear-gradient(135deg, rgba(120,144,156,0.15), rgba(120,144,156,0.05)); border: 1px solid rgba(120,144,156,0.3); }
+
+.advice-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.advice-icon { font-size: 22px; }
+.advice-title { font-size: 15px; font-weight: 700; }
+.advice-box.buy .advice-title { color: var(--down); }
+.advice-box.wait .advice-title { color: var(--accent); }
+.advice-box.hold .advice-title { color: var(--flat); }
+
+.advice-desc { font-size: 12px; color: var(--text-dim); line-height: 1.6; margin-bottom: 8px; }
+.advice-reason { font-size: 11px; color: var(--text); line-height: 1.6; background: rgba(0,0,0,0.2); padding: 8px; border-radius: 6px; }
+
+/* 统计指标 */
+.stats-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+.stat-item { text-align: center; padding: 8px 4px; background: #2a3a4a; border-radius: 8px; }
+.stat-label { font-size: 10px; color: var(--text-dim); margin-bottom: 4px; }
+.stat-value { font-size: 14px; font-weight: 600; color: var(--text-bright); }
+.stat-value.up { color: var(--up); }
+.stat-value.down { color: var(--down); }
+
+/* 底部导航 */
+.bottom-nav {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  background: var(--card-bg);
+  border-top: 1px solid var(--card-border);
+  display: flex;
+  z-index: 100;
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+.nav-item {
+  flex: 1;
+  padding: 8px 0 6px;
+  text-align: center;
+  cursor: pointer;
+  color: var(--text-dim);
+  transition: color 0.2s;
+}
+.nav-item.active { color: var(--primary); }
+.nav-icon { font-size: 20px; line-height: 1; }
+.nav-label { font-size: 10px; margin-top: 2px; }
+
+/* 页面切换 */
+.page { display: none; }
+.page.active { display: block; }
+
+/* 刷新按钮 */
+.refresh-btn {
+  background: var(--primary);
+  color: #000;
+  border: none;
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.refresh-btn:active { opacity: 0.7; }
+.refresh-btn.loading { opacity: 0.5; pointer-events: none; }
+
+/* 提示 */
+.toast {
+  position: fixed;
+  top: 60px; left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0,0,0,0.8);
+  color: #fff;
+  padding: 8px 20px;
+  border-radius: 20px;
+  font-size: 12px;
+  z-index: 999;
+  opacity: 0;
+  transition: opacity 0.3s;
+  pointer-events: none;
+}
+.toast.show { opacity: 1; }
+
+/* 数据来源提示 */
+.source-note {
+  font-size: 10px;
+  color: var(--text-dim);
+  text-align: center;
+  padding: 8px;
+  opacity: 0.7;
+}
+
+/* 空状态 */
+.loading-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  transition: opacity 0.3s;
+}
+.loading-overlay.hidden { opacity: 0; pointer-events: none; }
+.loading-spinner {
+  width: 40px; height: 40px;
+  border: 3px solid var(--card-border);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin-bottom: 16px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-text { font-size: 13px; color: var(--text-dim); }
+</style>
+</head>
+<body>
+
+<!-- 加载层 -->
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="loading-spinner"></div>
+  <div class="loading-text">正在加载价格数据...</div>
+</div>
+
+<!-- Header -->
+<div class="header">
+  <div>
+    <h1>金属价格工作台</h1>
+    <div class="time" id="updateTime">--</div>
+  </div>
+  <button class="refresh-btn" id="refreshBtn" onclick="refreshData()">刷新</button>
+</div>
+
+<div class="container">
+
+  <!-- ========== 首页 ========== -->
+  <div class="page active" id="page-home">
+    <!-- 白银价格卡片 -->
+    <div class="card price-card silver" onclick="switchPage('chart')">
+      <div class="price-header">
+        <span class="price-name">白银期货</span>
+        <span class="price-code">AG0 · 沪银连续</span>
+      </div>
+      <div class="price-value" id="agPrice">--</div>
+      <div class="price-change" id="agChange">--</div>
+      <div class="price-meta">
+        <span>开 <b id="agOpen">--</b></span>
+        <span>高 <b id="agHigh">--</b></span>
+        <span>低 <b id="agLow">--</b></span>
+        <span>量 <b id="agVol">--</b></span>
+      </div>
+    </div>
+
+    <!-- 铝价格卡片 -->
+    <div class="card price-card aluminum" onclick="switchPage('chart')">
+      <div class="price-header">
+        <span class="price-name">铝期货</span>
+        <span class="price-code">AL0 · 沪铝连续</span>
+      </div>
+      <div class="price-value" id="alPrice">--</div>
+      <div class="price-change" id="alChange">--</div>
+      <div class="price-meta">
+        <span>开 <b id="alOpen">--</b></span>
+        <span>高 <b id="alHigh">--</b></span>
+        <span>低 <b id="alLow">--</b></span>
+        <span>量 <b id="alVol">--</b></span>
+      </div>
+    </div>
+
+    <!-- 今日概览 -->
+    <div class="card">
+      <div class="card-title">今日概览 <span class="badge" id="todayDate">--</span></div>
+      <div id="todaySummary" style="font-size:12px; line-height:1.8; color:var(--text-dim);">--</div>
+    </div>
+
+    <!-- 采购建议速览 -->
+    <div class="card">
+      <div class="card-title">采购建议速览</div>
+      <div id="homeAdvice"></div>
+    </div>
+
+    <div class="source-note">数据来源：上海期货交易所（经新浪财经接口）</div>
+  </div>
+
+  <!-- ========== 走势图表 ========== -->
+  <div class="page" id="page-chart">
+    <div class="tabs">
+      <div class="tab active" onclick="switchMetal('AG0', this)">白银 AG0</div>
+      <div class="tab" onclick="switchMetal('AL0', this)">铝 AL0</div>
+    </div>
+
+    <div class="card">
+      <div class="range-selector">
+        <div class="range-btn" onclick="switchRange(30, this)">30天</div>
+        <div class="range-btn active" onclick="switchRange(60, this)">60天</div>
+        <div class="range-btn" onclick="switchRange(90, this)">90天</div>
+        <div class="range-btn" onclick="switchRange(120, this)">全部</div>
+      </div>
+      <div id="priceChart" class="chart-container"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">统计指标</div>
+      <div class="stats-grid" id="statsGrid"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">价格分布</div>
+      <div id="distChart" class="chart-container" style="height:200px;"></div>
+    </div>
+  </div>
+
+  <!-- ========== 影响因素 ========== -->
+  <div class="page" id="page-factors">
+    <div class="card">
+      <div class="card-title">白银价格影响因素 <span class="badge" id="agFactorTrend">--</span></div>
+      <div id="agFactors"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">铝价格影响因素 <span class="badge" id="alFactorTrend">--</span></div>
+      <div id="alFactors"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">宏观环境概览</div>
+      <div id="macroFactors"></div>
+    </div>
+  </div>
+
+  <!-- ========== 采购建议 ========== -->
+  <div class="page" id="page-advice">
+    <div class="card">
+      <div class="card-title">综合采购建议</div>
+      <div id="overallAdvice"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">白银采购策略</div>
+      <div id="agAdvice"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">铝杆采购策略</div>
+      <div id="alAdvice"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">决策参考指标</div>
+      <div id="decisionMetrics" style="font-size:12px; line-height:2;"></div>
+    </div>
+
+    <div class="source-note">
+      <p>本工作台分析基于历史价格数据和技术指标，仅供参考。</p>
+      <p>实际采购决策请结合公司库存情况、供应商报价及业务需求综合判断。</p>
+    </div>
+  </div>
+
+</div>
+
+<!-- 底部导航 -->
+<div class="bottom-nav">
+  <div class="nav-item active" onclick="switchPage('home')">
+    <div class="nav-icon">📊</div>
+    <div class="nav-label">概览</div>
+  </div>
+  <div class="nav-item" onclick="switchPage('chart')">
+    <div class="nav-icon">📈</div>
+    <div class="nav-label">走势</div>
+  </div>
+  <div class="nav-item" onclick="switchPage('factors')">
+    <div class="nav-icon">🔍</div>
+    <div class="nav-label">因素</div>
+  </div>
+  <div class="nav-item" onclick="switchPage('advice')">
+    <div class="nav-icon">💡</div>
+    <div class="nav-label">建议</div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ======================== 内嵌离线数据（最近120个交易日） ========================
+const EMBEDDED_DATA = {"AG0": [["2024-01-17", 5967.0, 5980.0, 5906.0, 5909.0, 276724], ["2024-01-18", 5924.0, 5930.0, 5866.0, 5908.0, 310406], ["2024-01-19", 5902.0, 5928.0, 5873.0, 5913.0, 273379], ["2024-01-22", 5921.0, 5933.0, 5751.0, 5753.0, 519980], ["2024-01-23", 5779.0, 5819.0, 5743.0, 5814.0, 423401], ["2024-01-24", 5807.0, 5850.0, 5797.0, 5847.0, 304836], ["2024-01-25", 5890.0, 5905.0, 5858.0, 5885.0, 390250], ["2024-01-26", 5890.0, 5918.0, 5870.0, 5911.0, 329306], ["2024-01-29", 5906.0, 5936.0, 5877.0, 5930.0, 334406], ["2024-01-30", 5939.0, 5977.0, 5905.0, 5968.0, 329647], ["2024-01-31", 5956.0, 5982.0, 5936.0, 5946.0, 347442], ["2024-02-01", 5957.0, 5978.0, 5913.0, 5923.0, 351377], ["2024-02-02", 5889.0, 5956.0, 5852.0, 5943.0, 567531], ["2024-02-05", 5943.0, 5951.0, 5842.0, 5856.0, 566088], ["2024-02-06", 5839.0, 5855.0, 5813.0, 5824.0, 336477], ["2024-02-07", 5816.0, 5840.0, 5768.0, 5782.0, 321494], ["2024-02-08", 5786.0, 5833.0, 5778.0, 5825.0, 283710], ["2024-02-19", 5978.0, 5978.0, 5910.0, 5955.0, 674], ["2024-02-20", 5949.0, 5952.0, 5922.0, 5927.0, 206221], ["2024-02-21", 5950.0, 5957.0, 5931.0, 5946.0, 264109], ["2024-02-22", 5941.0, 5951.0, 5906.0, 5934.0, 268724], ["2024-02-23", 5936.0, 5940.0, 5870.0, 5882.0, 343401], ["2024-02-26", 5901.0, 5941.0, 5881.0, 5908.0, 375350], ["2024-02-27", 5868.0, 5885.0, 5857.0, 5879.0, 300624], ["2024-02-28", 5888.0, 5898.0, 5848.0, 5857.0, 306399], ["2024-02-29", 5850.0, 5880.0, 5848.0, 5874.0, 231977], ["2024-03-01", 5850.0, 5923.0, 5843.0, 5914.0, 462134], ["2024-03-04", 5914.0, 6000.0, 5891.0, 5984.0, 632286], ["2024-03-05", 5989.0, 6119.0, 5984.0, 6110.0, 858618], ["2024-03-06", 6124.0, 6182.0, 6082.0, 6104.0, 799933], ["2024-03-07", 6120.0, 6178.0, 6105.0, 6141.0, 689646], ["2024-03-08", 6152.0, 6179.0, 6124.0, 6163.0, 539456], ["2024-03-11", 6166.0, 6190.0, 6114.0, 6157.0, 781039], ["2024-03-12", 6161.0, 6180.0, 6145.0, 6155.0, 366586], ["2024-03-13", 6155.0, 6157.0, 6104.0, 6146.0, 512523], ["2024-03-14", 6176.0, 6349.0, 6166.0, 6287.0, 994770], ["2024-03-15", 6280.0, 6387.0, 6247.0, 6344.0, 711923], ["2024-03-18", 6345.0, 6424.0, 6304.0, 6328.0, 912764], ["2024-03-19", 6364.0, 6382.0, 6291.0, 6305.0, 514436], ["2024-03-20", 6306.0, 6341.0, 6270.0, 6329.0, 426573], ["2024-03-21", 6303.0, 6511.0, 6299.0, 6499.0, 801060], ["2024-03-22", 6450.0, 6466.0, 6296.0, 6316.0, 932695], ["2024-03-25", 6346.0, 6419.0, 6331.0, 6353.0, 767346], ["2024-03-26", 6372.0, 6393.0, 6342.0, 6350.0, 390748], ["2024-03-27", 6376.0, 6406.0, 6307.0, 6346.0, 543521], ["2024-03-28", 6348.0, 6388.0, 6330.0, 6385.0, 501859], ["2024-03-29", 6398.0, 6494.0, 6355.0, 6471.0, 797370], ["2024-04-01", 6480.0, 6532.0, 6442.0, 6495.0, 454272], ["2024-04-02", 6480.0, 6566.0, 6410.0, 6562.0, 783877], ["2024-04-03", 6590.0, 6798.0, 6541.0, 6791.0, 1358294], ["2024-04-08", 6879.0, 7128.0, 6802.0, 7128.0, 1046959], ["2024-04-09", 7101.0, 7284.0, 7007.0, 7170.0, 2246670], ["2024-04-10", 7223.0, 7271.0, 7135.0, 7204.0, 1999764], ["2024-04-11", 7177.0, 7261.0, 7088.0, 7164.0, 2207334], ["2024-04-12", 7192.0, 7479.0, 7146.0, 7472.0, 1980210], ["2024-04-15", 7497.0, 7790.0, 7303.0, 7436.0, 4756248], ["2024-04-16", 7490.0, 7508.0, 7320.0, 7368.0, 2717032], ["2024-04-17", 7361.0, 7415.0, 7296.0, 7389.0, 2166222], ["2024-04-18", 7403.0, 7500.0, 7313.0, 7440.0, 1739582], ["2024-04-19", 7447.0, 7546.0, 7334.0, 7418.0, 1627442], ["2024-04-22", 7390.0, 7471.0, 7157.0, 7178.0, 1418627], ["2024-04-23", 7104.0, 7149.0, 6955.0, 6989.0, 1331511], ["2024-04-24", 7012.0, 7145.0, 6997.0, 7106.0, 921818], ["2024-04-25", 7106.0, 7116.0, 7001.0, 7086.0, 729494], ["2024-04-26", 7131.0, 7180.0, 7054.0, 7173.0, 789584], ["2024-04-29", 7148.0, 7178.0, 7032.0, 7089.0, 733568], ["2024-04-30", 7082.0, 7111.0, 6972.0, 7011.0, 575164], ["2024-05-06", 6928.0, 7072.0, 6926.0, 7058.0, 231457], ["2024-05-07", 7090.0, 7168.0, 7083.0, 7097.0, 479476], ["2024-05-08", 7112.0, 7146.0, 7048.0, 7108.0, 395454], ["2024-05-09", 7108.0, 7196.0, 7079.0, 7159.0, 400964], ["2024-05-10", 7217.0, 7416.0, 7150.0, 7414.0, 663631], ["2024-05-13", 7367.0, 7387.0, 7251.0, 7305.0, 521272], ["2024-05-14", 7356.0, 7386.0, 7278.0, 7328.0, 393033], ["2024-05-15", 7369.0, 7414.0, 7339.0, 7380.0, 583529], ["2024-05-16", 7474.0, 7661.0, 7368.0, 7581.0, 1432080], ["2024-05-17", 7583.0, 7649.0, 7555.0, 7649.0, 832369], ["2024-05-20", 7764.0, 8211.0, 7748.0, 8211.0, 1586066], ["2024-05-21", 8105.0, 8733.0, 8092.0, 8231.0, 3348747], ["2024-05-22", 8300.0, 8506.0, 8231.0, 8343.0, 2653457], ["2024-05-23", 8315.0, 8328.0, 7863.0, 7954.0, 2433207], ["2024-05-24", 7990.0, 8075.0, 7836.0, 7994.0, 2016565], ["2024-05-27", 8000.0, 8156.0, 7927.0, 8081.0, 1444656], ["2024-05-28", 8130.0, 8445.0, 8124.0, 8286.0, 2399913], ["2024-05-29", 8363.0, 8547.0, 8291.0, 8539.0, 2830453], ["2024-05-30", 8400.0, 8522.0, 8186.0, 8270.0, 2240753], ["2024-05-31", 8230.0, 8377.0, 8110.0, 8232.0, 1944600], ["2024-06-03", 8338.0, 8388.0, 7822.0, 7957.0, 2774068], ["2024-06-04", 8050.0, 8119.0, 7938.0, 8086.0, 1583713], ["2024-06-05", 7900.0, 7928.0, 7728.0, 7776.0, 1761979], ["2024-06-06", 7810.0, 8083.0, 7758.0, 8036.0, 1731678], ["2024-06-07", 7982.0, 8332.0, 7963.0, 8221.0, 2104715], ["2024-06-10", 7359.0, 8994.0, 7359.0, 8177.0, 62170], ["2024-06-11", 7845.0, 7850.0, 7653.0, 7680.0, 811926], ["2024-06-12", 7739.0, 7792.0, 7678.0, 7762.0, 981070], ["2024-06-13", 7900.0, 7976.0, 7581.0, 7744.0, 1828905], ["2024-06-14", 7750.0, 7763.0, 7560.0, 7675.0, 1441175], ["2024-06-17", 7708.0, 7805.0, 7657.0, 7680.0, 1291785], ["2024-06-18", 7720.0, 7825.0, 7683.0, 7752.0, 1091953], ["2024-06-19", 7661.0, 7819.0, 7656.0, 7772.0, 1082493], ["2024-06-20", 7778.0, 8066.0, 7775.0, 8015.0, 1278410], ["2024-06-21", 7990.0, 8185.0, 7982.0, 8036.0, 1414526], ["2024-06-24", 7991.0, 8044.0, 7776.0, 7821.0, 1421488], ["2024-06-25", 7830.0, 7875.0, 7754.0, 7830.0, 854728], ["2024-06-26", 7830.0, 7830.0, 7603.0, 7672.0, 1165052], ["2024-06-27", 7655.0, 7668.0, 7571.0, 7629.0, 939655], ["2024-06-28", 7750.0, 7810.0, 7675.0, 7802.0, 205135], ["2024-07-01", 7861.0, 7897.0, 7723.0, 7773.0, 172160], ["2024-07-02", 7792.0, 7860.0, 7780.0, 7836.0, 130606], ["2024-07-03", 7877.0, 8017.0, 7830.0, 8014.0, 212341], ["2024-07-04", 8100.0, 8177.0, 8033.0, 8067.0, 277620], ["2024-07-05", 8073.0, 8170.0, 8056.0, 8140.0, 185536], ["2024-07-08", 8169.0, 8364.0, 8147.0, 8187.0, 405167], ["2024-07-09", 8205.0, 8252.0, 8072.0, 8224.0, 268996], ["2024-07-10", 8200.0, 8244.0, 8096.0, 8185.0, 299810], ["2024-07-11", 8217.0, 8262.0, 8134.0, 8240.0, 258088], ["2024-07-12", 8361.0, 8385.0, 8109.0, 8131.0, 442198], ["2024-07-15", 8082.0, 8202.0, 8052.0, 8102.0, 291198], ["2024-07-16", 8111.0, 8188.0, 8081.0, 8159.0, 265631], ["2024-07-17", 8100.0, 8283.0, 8100.0, 8131.0, 480672]], "AL0": [["2024-01-17", 18830.0, 18945.0, 18810.0, 18830.0, 93994], ["2024-01-18", 18810.0, 18815.0, 18705.0, 18795.0, 111021], ["2024-01-19", 18745.0, 18770.0, 18610.0, 18660.0, 134623], ["2024-01-22", 18690.0, 18800.0, 18630.0, 18695.0, 116769], ["2024-01-23", 18655.0, 18710.0, 18595.0, 18675.0, 116729], ["2024-01-24", 18700.0, 19025.0, 18695.0, 19025.0, 197490], ["2024-01-25", 19075.0, 19080.0, 18830.0, 18865.0, 149666], ["2024-01-26", 18925.0, 19140.0, 18875.0, 19055.0, 167960], ["2024-01-29", 19115.0, 19250.0, 18915.0, 19005.0, 183232], ["2024-01-30", 19005.0, 19060.0, 18930.0, 18950.0, 103465], ["2024-01-31", 18990.0, 19060.0, 18940.0, 19010.0, 116786], ["2024-02-01", 19050.0, 19185.0, 18865.0, 18900.0, 165260], ["2024-02-02", 18900.0, 18980.0, 18795.0, 18810.0, 110080], ["2024-02-05", 18870.0, 18890.0, 18725.0, 18815.0, 107381], ["2024-02-06", 18740.0, 18865.0, 18705.0, 18850.0, 85438], ["2024-02-07", 18875.0, 19010.0, 18860.0, 18885.0, 71727], ["2024-02-08", 18890.0, 18985.0, 18820.0, 18895.0, 57373], ["2024-02-19", 18950.0, 19000.0, 18710.0, 18740.0, 2245], ["2024-02-20", 18725.0, 18790.0, 18630.0, 18690.0, 123867], ["2024-02-21", 18675.0, 19100.0, 18655.0, 18945.0, 204675], ["2024-02-22", 18960.0, 18975.0, 18725.0, 18800.0, 150886], ["2024-02-23", 18785.0, 18915.0, 18685.0, 18850.0, 157164], ["2024-02-26", 18785.0, 18840.0, 18700.0, 18795.0, 144306], ["2024-02-27", 18800.0, 18930.0, 18765.0, 18835.0, 141447], ["2024-02-28", 18845.0, 18880.0, 18770.0, 18790.0, 116215], ["2024-02-29", 18765.0, 18950.0, 18750.0, 18925.0, 143296], ["2024-03-01", 18945.0, 19015.0, 18930.0, 18965.0, 126389], ["2024-03-04", 18985.0, 19055.0, 18920.0, 19030.0, 115727], ["2024-03-05", 18990.0, 19130.0, 18965.0, 19060.0, 113919], ["2024-03-06", 19080.0, 19125.0, 18955.0, 19055.0, 112015], ["2024-03-07", 19065.0, 19150.0, 19025.0, 19130.0, 105178], ["2024-03-08", 19200.0, 19235.0, 19145.0, 19200.0, 111191], ["2024-03-11", 19230.0, 19230.0, 19065.0, 19180.0, 112645], ["2024-03-12", 19200.0, 19250.0, 19145.0, 19180.0, 87077], ["2024-03-13", 19205.0, 19270.0, 19130.0, 19235.0, 100838], ["2024-03-14", 19250.0, 19345.0, 19135.0, 19140.0, 111196], ["2024-03-15", 19115.0, 19310.0, 19115.0, 19295.0, 105835], ["2024-03-18", 19330.0, 19345.0, 19210.0, 19270.0, 138116], ["2024-03-19", 19290.0, 19430.0, 19175.0, 19215.0, 184159], ["2024-03-20", 19165.0, 19315.0, 19150.0, 19285.0, 120556], ["2024-03-21", 19320.0, 19490.0, 19295.0, 19485.0, 169331], ["2024-03-22", 19510.0, 19530.0, 19335.0, 19400.0, 189882], ["2024-03-25", 19445.0, 19595.0, 19400.0, 19455.0, 217004], ["2024-03-26", 19490.0, 19625.0, 19465.0, 19490.0, 195983], ["2024-03-27", 19490.0, 19520.0, 19365.0, 19415.0, 167057], ["2024-03-28", 19380.0, 19510.0, 19355.0, 19475.0, 129099], ["2024-03-29", 19500.0, 19745.0, 19490.0, 19710.0, 203546], ["2024-04-01", 19710.0, 19820.0, 19615.0, 19770.0, 156173], ["2024-04-02", 19760.0, 19815.0, 19685.0, 19810.0, 122303], ["2024-04-03", 19830.0, 19960.0, 19805.0, 19925.0, 135440], ["2024-04-08", 20090.0, 20400.0, 19935.0, 20205.0, 195033], ["2024-04-09", 20225.0, 20320.0, 20120.0, 20230.0, 165748], ["2024-04-10", 20280.0, 20535.0, 20215.0, 20505.0, 286910], ["2024-04-11", 20500.0, 20595.0, 20220.0, 20460.0, 316782], ["2024-04-12", 20425.0, 20790.0, 20380.0, 20735.0, 278588], ["2024-04-15", 20750.0, 21345.0, 20605.0, 20685.0, 501705], ["2024-04-16", 20585.0, 20720.0, 20160.0, 20165.0, 363620], ["2024-04-17", 20185.0, 20390.0, 20165.0, 20360.0, 225310], ["2024-04-18", 20405.0, 20495.0, 20225.0, 20460.0, 233777], ["2024-04-19", 20475.0, 20560.0, 20265.0, 20350.0, 280012], ["2024-04-22", 20380.0, 20835.0, 20380.0, 20520.0, 365965], ["2024-04-23", 20500.0, 20605.0, 20115.0, 20200.0, 314290], ["2024-04-24", 20000.0, 20310.0, 19950.0, 20250.0, 272282], ["2024-04-25", 20280.0, 20490.0, 20230.0, 20485.0, 249125], ["2024-04-26", 20515.0, 20650.0, 20355.0, 20625.0, 226912], ["2024-04-29", 20625.0, 20770.0, 20520.0, 20535.0, 226253], ["2024-04-30", 20585.0, 20725.0, 20490.0, 20575.0, 195773], ["2024-05-06", 20485.0, 20815.0, 20465.0, 20745.0, 124556], ["2024-05-07", 20720.0, 20830.0, 20585.0, 20635.0, 150341], ["2024-05-08", 20630.0, 20670.0, 20410.0, 20440.0, 123173], ["2024-05-09", 20390.0, 20705.0, 20385.0, 20615.0, 90180], ["2024-05-10", 20625.0, 20790.0, 20580.0, 20745.0, 93037], ["2024-05-13", 20615.0, 20655.0, 20350.0, 20595.0, 154057], ["2024-05-14", 20680.0, 20745.0, 20520.0, 20575.0, 112740], ["2024-05-15", 20490.0, 20570.0, 20420.0, 20530.0, 114789], ["2024-05-16", 20530.0, 20935.0, 20450.0, 20800.0, 229497], ["2024-05-17", 20670.0, 20995.0, 20650.0, 20995.0, 214584], ["2024-05-20", 20965.0, 21370.0, 20925.0, 20945.0, 335211], ["2024-05-21", 20890.0, 21565.0, 20820.0, 21095.0, 484283], ["2024-05-22", 21350.0, 21620.0, 21170.0, 21375.0, 408618], ["2024-05-23", 21110.0, 21220.0, 20700.0, 20780.0, 320362], ["2024-05-24", 20770.0, 20980.0, 20770.0, 20855.0, 207880], ["2024-05-27", 20975.0, 21085.0, 20910.0, 20910.0, 193586], ["2024-05-28", 20925.0, 21315.0, 20925.0, 21190.0, 236297], ["2024-05-29", 21250.0, 21520.0, 21125.0, 21520.0, 258576], ["2024-05-30", 21350.0, 22040.0, 21350.0, 21560.0, 572669], ["2024-05-31", 21360.0, 21555.0, 21280.0, 21535.0, 298569], ["2024-06-03", 21630.0, 21670.0, 21070.0, 21170.0, 336554], ["2024-06-04", 21340.0, 21530.0, 21240.0, 21470.0, 117032], ["2024-06-05", 21305.0, 21415.0, 21180.0, 21190.0, 127779], ["2024-06-06", 21180.0, 21430.0, 21110.0, 21345.0, 124436], ["2024-06-07", 21335.0, 21520.0, 21265.0, 21295.0, 113911], ["2024-06-10", 21295.0, 22865.0, 19870.0, 21385.0, 3882], ["2024-06-11", 21050.0, 21100.0, 20900.0, 20965.0, 108509], ["2024-06-12", 20900.0, 20945.0, 20775.0, 20850.0, 119048], ["2024-06-13", 20920.0, 21030.0, 20655.0, 20680.0, 144314], ["2024-06-14", 20780.0, 20780.0, 20580.0, 20610.0, 125161], ["2024-06-17", 20495.0, 20565.0, 20265.0, 20290.0, 211038], ["2024-06-18", 20250.0, 20485.0, 20240.0, 20385.0, 167028], ["2024-06-19", 20330.0, 20545.0, 20320.0, 20475.0, 123921], ["2024-06-20", 20485.0, 20600.0, 20485.0, 20595.0, 130747], ["2024-06-21", 20595.0, 20660.0, 20460.0, 20470.0, 139748], ["2024-06-24", 20430.0, 20470.0, 20305.0, 20360.0, 158408], ["2024-06-25", 20395.0, 20470.0, 20275.0, 20325.0, 139711], ["2024-06-26", 20315.0, 20345.0, 20135.0, 20320.0, 175899], ["2024-06-27", 20320.0, 20380.0, 20170.0, 20180.0, 134318], ["2024-06-28", 20235.0, 20330.0, 20160.0, 20320.0, 136577], ["2024-07-01", 20425.0, 20445.0, 20220.0, 20320.0, 124343], ["2024-07-02", 20355.0, 20400.0, 20270.0, 20395.0, 114819], ["2024-07-03", 20440.0, 20500.0, 20360.0, 20490.0, 120869], ["2024-07-04", 20530.0, 20550.0, 20405.0, 20420.0, 97797], ["2024-07-05", 20405.0, 20520.0, 20290.0, 20300.0, 145167], ["2024-07-08", 20400.0, 20480.0, 20310.0, 20345.0, 130151], ["2024-07-09", 20370.0, 20485.0, 20330.0, 20460.0, 124825], ["2024-07-10", 20415.0, 20440.0, 19950.0, 20100.0, 181561], ["2024-07-11", 20170.0, 20305.0, 20170.0, 20235.0, 89413], ["2024-07-12", 20345.0, 20345.0, 19915.0, 20050.0, 133739], ["2024-07-15", 20095.0, 20165.0, 19955.0, 19970.0, 116708], ["2024-07-16", 19970.0, 20050.0, 19790.0, 19860.0, 155590], ["2024-07-17", 19800.0, 19885.0, 19710.0, 19740.0, 165511]]};
+
+// ======================== 全局状态 ========================
+let currentData = null;      // {AG0: [...], AL0: [...]}
+let currentMetal = 'AG0';
+let currentRange = 60;
+let priceChart = null;
+let distChart = null;
+
+// ======================== 数据获取 ========================
+async function loadData() {
+  currentData = JSON.parse(JSON.stringify(EMBEDDED_DATA));
+
+  // 尝试从新浪接口获取最新数据（可能因跨域失败，失败则用离线数据）
+  try {
+    const [agData, alData] = await Promise.all([
+      fetchSinaDailyKLine('AG0'),
+      fetchSinaDailyKLine('AL0')
+    ]);
+    if (agData && agData.length > 10) currentData.AG0 = agData;
+    if (alData && alData.length > 10) currentData.AL0 = alData;
+    console.log('✅ 在线数据获取成功');
+  } catch(e) {
+    console.log('⚠️ 在线数据获取失败，使用离线数据:', e.message);
+  }
+
+  // 尝试获取实时行情
+  try {
+    const realtime = await fetchSinaRealtime();
+    if (realtime) {
+      updateRealtimeData(realtime);
+    }
+  } catch(e) {
+    console.log('⚠️ 实时行情获取失败:', e.message);
+  }
+}
+
+// 获取新浪日K线数据（JSONP方式绕过跨域）
+function fetchSinaDailyKLine(symbol) {
+  return new Promise((resolve, reject) => {
+    const cbName = 'jsonp_cb_' + Math.random().toString(36).substr(2,9);
+    const url = `https://stock2.finance.sina.com.cn/futures/api/json.php/IndexService.getInnerFuturesDailyKLine?symbol=${symbol}`;
+
+    // 尝试直接fetch（部分环境支持CORS）
+    fetch(url).then(r => r.text()).then(text => {
+      try {
+        const data = JSON.parse(text);
+        const formatted = data.map(d => [d[0], parseFloat(d[1]), parseFloat(d[2]), parseFloat(d[3]), parseFloat(d[4]), parseInt(d[5])]);
+        resolve(formatted);
+      } catch(e) { reject(e); }
+    }).catch(() => {
+      // fetch失败，尝试JSONP
+      window[cbName] = function(data) {
+        try {
+          const formatted = data.map(d => [d[0], parseFloat(d[1]), parseFloat(d[2]), parseFloat(d[3]), parseFloat(d[4]), parseInt(d[5])]);
+          resolve(formatted);
+          delete window[cbName];
+        } catch(e) { reject(e); }
+      };
+      const script = document.createElement('script');
+      script.src = url + '&callback=' + cbName;
+      script.onerror = () => { reject(new Error('JSONP failed')); delete window[cbName]; };
+      document.body.appendChild(script);
+      setTimeout(() => { if(window[cbName]) { reject(new Error('timeout')); delete window[cbName]; } }, 5000);
+    });
+  });
+}
+
+// 获取实时行情（通过script标签绕过跨域）
+function fetchSinaRealtime() {
+  return new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = 'https://hq.sinajs.cn/list=AG0,AL0';
+    script.charset = 'gbk';
+    script.onload = () => {
+      try {
+        const agStr = window.hq_str_AG0;
+        const alStr = window.hq_str_AL0;
+        if (!agStr || !alStr) { reject(new Error('no data')); return; }
+        const agParts = agStr.split(',');
+        const alParts = alStr.split(',');
+        resolve({
+          AG0: { name: agParts[0], open: parseFloat(agParts[2]), high: parseFloat(agParts[3]), low: parseFloat(agParts[4]), preClose: parseFloat(agParts[5]), price: parseFloat(agParts[8]), volume: parseInt(agParts[14]), date: agParts[17] },
+          AL0: { name: alParts[0], open: parseFloat(alParts[2]), high: parseFloat(alParts[3]), low: parseFloat(alParts[4]), preClose: parseFloat(alParts[5]), price: parseFloat(alParts[8]), volume: parseInt(alParts[14]), date: alParts[17] }
+        });
+        resolve(data);
+      } catch(e) { reject(e); }
+      script.remove();
+    };
+    script.onerror = () => { reject(new Error('script error')); script.remove(); };
+    document.head.appendChild(script);
+    setTimeout(() => reject(new Error('timeout')), 5000);
+  });
+}
+
+// 用实时数据更新最新一条K线
+function updateRealtimeData(realtime) {
+  for (const symbol of ['AG0', 'AL0']) {
+    const rt = realtime[symbol];
+    if (!rt || !rt.price) continue;
+    const arr = currentData[symbol];
+    if (arr.length === 0) continue;
+    const last = arr[arr.length - 1];
+    if (last[0] === rt.date) {
+      // 更新今日数据
+      last[1] = rt.open || last[1];
+      last[2] = rt.high || last[2];
+      last[3] = rt.low || last[3];
+      last[4] = rt.price;
+      last[5] = rt.volume || last[5];
+    } else {
+      // 新交易日，添加新记录
+      arr.push([rt.date, rt.open, rt.high, rt.low, rt.price, rt.volume]);
+    }
+  }
+  console.log('✅ 实时数据已更新');
+}
+
+// ======================== 页面切换 ========================
+function switchPage(pageName) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-' + pageName).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  event && event.currentTarget && event.currentTarget.classList.add('active');
+
+  // 懒加载图表
+  if (pageName === 'chart') {
+    setTimeout(() => { renderPriceChart(); renderDistChart(); renderStats(); }, 100);
+  } else if (pageName === 'factors') {
+    renderFactors();
+  } else if (pageName === 'advice') {
+    renderAdvice();
+  }
+}
+
+// ======================== 首页渲染 ========================
+function renderHome() {
+  const agData = currentData.AG0;
+  const alData = currentData.AL0;
+  const agLast = agData[agData.length - 1];
+  const alLast = alData[alData.length - 1];
+  const agPrev = agData[agData.length - 2] || agLast;
+  const alPrev = alData[alData.length - 2] || alLast;
+
+  // 白银
+  renderPriceCard('ag', agLast, agPrev);
+  // 铝
+  renderPriceCard('al', alLast, alPrev);
+
+  // 更新时间
+  document.getElementById('updateTime').textContent = '更新于 ' + agLast[0] + ' 15:00';
+  document.getElementById('todayDate').textContent = agLast[0];
+
+  // 今日概览
+  const agChangePct = ((agLast[4] - agPrev[4]) / agPrev[4] * 100).toFixed(2);
+  const alChangePct = ((alLast[4] - alPrev[4]) / alPrev[4] * 100).toFixed(2);
+  const agTrend = agChangePct > 0 ? '上涨' : agChangePct < 0 ? '下跌' : '持平';
+  const alTrend = alChangePct > 0 ? '上涨' : alChangePct < 0 ? '下跌' : '持平';
+
+  document.getElementById('todaySummary').innerHTML =
+    `白银主力合约 <b style="color:${agChangePct>0?'var(--up)':'var(--down)'}">${agTrend} ${Math.abs(agChangePct)}%</b>，收于 <b>${agLast[4].toFixed(0)}</b> 元/千克<br>` +
+    `铝主力合约 <b style="color:${alChangePct>0?'var(--up)':'var(--down)'}">${alTrend} ${Math.abs(alChangePct)}%</b>，收于 <b>${alLast[4].toFixed(0)}</b> 元/吨<br>` +
+    `<span style="color:var(--text-dim);">日内波动：白银 ${(agLast[2]-agLast[3]).toFixed(0)} 点，铝 ${(alLast[2]-alLast[3]).toFixed(0)} 元</span>`;
+
+  // 采购建议速览
+  renderHomeAdvice(agLast, alLast, agPrev, alPrev);
+}
+
+function renderPriceCard(prefix, last, prev) {
+  const price = last[4];
+  const change = price - prev[4];
+  const changePct = (change / prev[4] * 100).toFixed(2);
+  const dir = change > 0 ? 'up' : change < 0 ? 'down' : 'flat';
+  const arrow = change > 0 ? '↑' : change < 0 ? '↓' : '→';
+
+  document.getElementById(prefix + 'Price').textContent = price.toFixed(0);
+  document.getElementById(prefix + 'Price').className = 'price-value ' + dir;
+  document.getElementById(prefix + 'Change').textContent = `${arrow} ${Math.abs(change).toFixed(0)} (${Math.abs(changePct)}%)`;
+  document.getElementById(prefix + 'Change').className = 'price-change ' + dir;
+  document.getElementById(prefix + 'Open').textContent = last[1].toFixed(0);
+  document.getElementById(prefix + 'High').textContent = last[2].toFixed(0);
+  document.getElementById(prefix + 'Low').textContent = last[3].toFixed(0);
+  document.getElementById(prefix + 'Vol').textContent = formatVol(last[5]);
+}
+
+function formatVol(v) {
+  if (v >= 10000) return (v / 10000).toFixed(1) + '万';
+  return v.toString();
+}
+
+function renderHomeAdvice(agLast, agPrev, alLast, alPrev) {
+  const agAdvice = generateAdvice('AG0', '白银', '千克');
+  const alAdvice = generateAdvice('AL0', '铝杆', '吨');
+  document.getElementById('homeAdvice').innerHTML =
+    `<div style="margin-bottom:8px;">🥈 <b>白银：</b>${agAdvice.icon} ${agAdvice.title}</div>` +
+    `<div>🪙 <b>铝杆：</b>${alAdvice.icon} ${alAdvice.title}</div>`;
+}
+
+// ======================== 图表渲染 ========================
+function switchMetal(metal, el) {
+  currentMetal = metal;
+  document.querySelectorAll('#page-chart .tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  renderPriceChart();
+  renderDistChart();
+  renderStats();
+}
+
+function switchRange(range, el) {
+  currentRange = range;
+  document.querySelectorAll('.range-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  renderPriceChart();
+}
+
+function renderPriceChart() {
+  const el = document.getElementById('priceChart');
+  if (!el) return;
+  if (!priceChart) {
+    priceChart = echarts.init(el);
+  }
+
+  const allData = currentData[currentMetal];
+  const data = allData.slice(-currentRange);
+  const name = currentMetal === 'AG0' ? '白银' : '铝';
+  const unit = currentMetal === 'AG0' ? '元/千克' : '元/吨';
+
+  const dates = data.map(d => d[0]);
+  const closes = data.map(d => d[4]);
+  const volumes = data.map(d => d[5]);
+
+  // 计算移动平均线
+  const ma5 = calcMA(closes, 5);
+  const ma20 = calcMA(closes, 20);
+
+  priceChart.setOption({
+    backgroundColor: 'transparent',
+    tooltip: {
+      trigger: 'axis',
+      backgroundColor: 'rgba(26,38,52,0.95)',
+      borderColor: '#2a3a4a',
+      textStyle: { color: '#e0e0e0', fontSize: 11 },
+      formatter: function(params) {
+        let html = `<div style="font-size:11px;">${params[0].axisValue}<br>`;
+        params.forEach(p => {
+          html += `${p.marker} ${p.seriesName}: <b>${p.value != null ? p.value.toFixed(0) : '--'}</b>`;
+          if (p.seriesName === '收盘价') html += ` ${unit}`;
+          html += '<br>';
+        });
+        html += '</div>';
+        return html;
+      }
+    },
+    legend: {
+      data: ['收盘价', 'MA5', 'MA20'],
+      top: 0,
+      textStyle: { color: '#90a4ae', fontSize: 10 },
+      itemWidth: 12, itemHeight: 8
+    },
+    grid: { left: '8%', right: '5%', top: '12%', bottom: '25%' },
+    xAxis: {
+      type: 'category',
+      data: dates,
+      axisLine: { lineStyle: { color: '#2a3a4a' } },
+      axisLabel: { color: '#78909c', fontSize: 9, rotate: 0, interval: Math.floor(data.length / 5) },
+      axisTick: { show: false }
+    },
+    yAxis: [{
+      type: 'value',
+      scale: true,
+      axisLine: { show: false },
+      axisLabel: { color: '#78909c', fontSize: 9 },
+      splitLine: { lineStyle: { color: '#1a2634' } }
+    }],
+    series: [
+      {
+        name: '收盘价',
+        type: 'line',
+        data: closes,
+        smooth: false,
+        symbol: 'none',
+        lineStyle: { color: currentMetal === 'AG0' ? '#c0c0c0' : '#b0bec5', width: 2 },
+        areaStyle: {
+          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+            { offset: 0, color: currentMetal === 'AG0' ? 'rgba(192,192,192,0.3)' : 'rgba(176,190,197,0.3)' },
+            { offset: 1, color: 'rgba(0,0,0,0)' }
+          ])
+        }
+      },
+      {
+        name: 'MA5',
+        type: 'line',
+        data: ma5,
+        smooth: true,
+        symbol: 'none',
+        lineStyle: { color: '#ffb74d', width: 1.5, type: 'dashed' }
+      },
+      {
+        name: 'MA20',
+        type: 'line',
+        data: ma20,
+        smooth: true,
+        symbol: 'none',
+        lineStyle: { color: '#4fc3f7', width: 1.5, type: 'dashed' }
+      }
+    ],
+    dataZoom: [
+      { type: 'inside', start: 0, end: 100 },
+      { type: 'slider', bottom: '2%', height: 16, backgroundColor: '#1a2634', fillerColor: 'rgba(79,195,247,0.2)', textStyle: { color: '#78909c', fontSize: 9 } }
+    ]
+  });
+}
+
+function renderDistChart() {
+  const el = document.getElementById('distChart');
+  if (!el) return;
+  if (!distChart) {
+    distChart = echarts.init(el);
+  }
+
+  const allData = currentData[currentMetal];
+  const data = allData.slice(-currentRange);
+  const closes = data.map(d => d[4]);
+  const name = currentMetal === 'AG0' ? '白银' : '铝';
+
+  // 简单直方图
+  const min = Math.min(...closes);
+  const max = Math.max(...closes);
+  const bins = 10;
+  const binSize = (max - min) / bins;
+  const histData = new Array(bins).fill(0);
+  const binLabels = [];
+
+  for (let i = 0; i < bins; i++) {
+    binLabels.push((min + i * binSize).toFixed(0));
+  }
+  closes.forEach(c => {
+    let idx = Math.floor((c - min) / binSize);
+    if (idx >= bins) idx = bins - 1;
+    histData[idx]++;
+  });
+
+  const currentPrice = closes[closes.length - 1];
+  const currentBin = Math.min(Math.floor((currentPrice - min) / binSize), bins - 1);
+
+  distChart.setOption({
+    backgroundColor: 'transparent',
+    tooltip: {
+      trigger: 'axis',
+      backgroundColor: 'rgba(26,38,52,0.95)',
+      borderColor: '#2a3a4a',
+      textStyle: { color: '#e0e0e0', fontSize: 11 },
+      formatter: p => `价格区间: <b>${p[0].axisValue}</b><br>天数: <b>${p[0].value}</b>`
+    },
+    grid: { left: '12%', right: '8%', top: '8%', bottom: '12%' },
+    xAxis: {
+      type: 'category',
+      data: binLabels,
+      axisLine: { lineStyle: { color: '#2a3a4a' } },
+      axisLabel: { color: '#78909c', fontSize: 8, rotate: 30 }
+    },
+    yAxis: {
+      type: 'value',
+      axisLine: { show: false },
+      axisLabel: { color: '#78909c', fontSize: 9 },
+      splitLine: { lineStyle: { color: '#1a2634' } }
+    },
+    series: [{
+      type: 'bar',
+      data: histData.map((v, i) => ({
+        value: v,
+        itemStyle: { color: i === currentBin ? '#4fc3f7' : '#2a3a4a', borderRadius: [3,3,0,0] }
+      })),
+      barWidth: '70%'
+    }]
+  });
+}
+
+function calcMA(data, period) {
+  const result = new Array(data.length).fill(null);
+  for (let i = period - 1; i < data.length; i++) {
+    let sum = 0;
+    for (let j = 0; j < period; j++) sum += data[i - j];
+    result[i] = sum / period;
+  }
+  return result;
+}
+
+function renderStats() {
+  const allData = currentData[currentMetal];
+  const data = allData.slice(-currentRange);
+  const closes = data.map(d => d[4]);
+  const volumes = data.map(d => d[5]);
+  const unit = currentMetal === 'AG0' ? '元/千克' : '元/吨';
+
+  const current = closes[closes.length - 1];
+  const min = Math.min(...closes);
+  const max = Math.max(...closes);
+  const avg = closes.reduce((a,b) => a+b, 0) / closes.length;
+
+  // 涨跌幅
+  const first = closes[0];
+  const totalChange = ((current - first) / first * 100).toFixed(2);
+
+  // 波动率（标准差/均值）
+  const variance = closes.reduce((sum, v) => sum + Math.pow(v - avg, 2), 0) / closes.length;
+  const volatility = (Math.sqrt(variance) / avg * 100).toFixed(2);
+
+  // 平均成交量
+  const avgVol = volumes.reduce((a,b) => a+b, 0) / volumes.length;
+
+  // 当前价格分位
+  let higherCount = 0;
+  closes.forEach(c => { if (c < current) higherCount++; });
+  const percentile = (higherCount / closes.length * 100).toFixed(0);
+
+  const html = `
+    <div class="stat-item">
+      <div class="stat-label">当前价</div>
+      <div class="stat-value">${current.toFixed(0)}</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-label">区间最低</div>
+      <div class="stat-value down">${min.toFixed(0)}</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-label">区间最高</div>
+      <div class="stat-value up">${max.toFixed(0)}</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-label">均价</div>
+      <div class="stat-value">${avg.toFixed(0)}</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-label">区间涨跌</div>
+      <div class="stat-value ${totalChange>0?'up':'down'}">${totalChange>0?'+':''}${totalChange}%</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-label">波动率</div>
+      <div class="stat-value">${volatility}%</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-label">价格分位</div>
+      <div class="stat-value">${percentile}%</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-label">日均量</div>
+      <div class="stat-value">${formatVol(Math.round(avgVol))}</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-label">距最高</div>
+      <div class="stat-value down">${((current-max)/max*100).toFixed(1)}%</div>
+    </div>
+  `;
+  document.getElementById('statsGrid').innerHTML = html;
+}
+
+// ======================== 影响因素分析 ========================
+function renderFactors() {
+  const agData = currentData.AG0;
+  const alData = currentData.AL0;
+
+  const agAnalysis = analyzePriceFactors(agData);
+  const alAnalysis = analyzePriceFactors(alData);
+
+  document.getElementById('agFactorTrend').textContent = agAnalysis.trend;
+  document.getElementById('alFactorTrend').textContent = alAnalysis.trend;
+
+  document.getElementById('agFactors').innerHTML = getSilverFactors(agAnalysis).map(f => renderFactorItem(f)).join('');
+  document.getElementById('alFactors').innerHTML = getAluminumFactors(alAnalysis).map(f => renderFactorItem(f)).join('');
+  document.getElementById('macroFactors').innerHTML = getMacroFactors(agAnalysis, alAnalysis).map(f => renderFactorItem(f)).join('');
+}
+
+function renderFactorItem(f) {
+  return `
+    <div class="factor-item">
+      <div class="factor-icon" style="background:${f.bg};">${f.icon}</div>
+      <div class="factor-content">
+        <div class="factor-name">${f.name}</div>
+        <div class="factor-desc">${f.desc}</div>
+        <div class="factor-impact ${f.impactType}">${f.impact}</div>
+      </div>
+    </div>
+  `;
+}
+
+// 分析价格趋势
+function analyzePriceFactors(data) {
+  const recent = data.slice(-20);
+  const closes = recent.map(d => d[4]);
+  const current = closes[closes.length - 1];
+
+  const ma5 = avg(closes.slice(-5));
+  const ma20 = avg(closes.slice(-20));
+  const high20 = Math.max(...closes);
+  const low20 = Math.min(...closes);
+  const changePct20 = ((current - closes[0]) / closes[0] * 100).toFixed(2);
+
+  // RSI简化
+  let gains = 0, losses = 0;
+  for (let i = 1; i < closes.length; i++) {
+    const diff = closes[i] - closes[i-1];
+    if (diff > 0) gains += diff; else losses -= diff;
+  }
+  const rs = gains / (losses || 1);
+  const rsi = (100 - 100 / (1 + rs)).toFixed(0);
+
+  let trend;
+  if (ma5 > ma20 && current > ma5) trend = '↗ 偏强';
+  else if (ma5 < ma20 && current < ma5) trend = '↘ 偏弱';
+  else trend = '→ 震荡';
+
+  return { current, ma5, ma20, high20, low20, changePct20, rsi, trend };
+}
+
+function avg(arr) { return arr.reduce((a,b) => a+b, 0) / arr.length; }
+
+// 白银影响因素
+function getSilverFactors(a) {
+  const factors = [];
+
+  // 美元指数
+  factors.push({
+    icon: '💵', bg: 'rgba(79,195,247,0.15)',
+    name: '美元指数走势',
+    desc: '白银以美元计价，美元走强通常压制银价。当前需关注美联储利率政策及美元指数变化。',
+    impact: a.ma5 > a.ma20 ? '美元偏弱，利好银价' : '美元偏强，压制银价',
+    impactType: a.ma5 > a.ma20 ? 'up' : 'down'
+  });
+
+  // 工业需求
+  factors.push({
+    icon: '🏭', bg: 'rgba(255,183,77,0.15)',
+    name: '工业需求（光伏/电子）',
+    desc: '白银是光伏电池板和电子元器件的重要材料，光伏产业扩张持续拉动白银工业需求，是中长期支撑银价的核心因素。',
+    impact: '光伏需求增长，中长期利好',
+    impactType: 'up'
+  });
+
+  // 避险情绪
+  factors.push({
+    icon: '🛡️', bg: 'rgba(120,144,156,0.15)',
+    name: '避险情绪',
+    desc: '地缘政治风险、经济衰退担忧会推升白银的避险需求。关注国际局势变化和全球经济数据。',
+    impact: a.changePct20 > 2 ? '避险情绪升温' : '避险需求平稳',
+    impactType: a.changePct20 > 2 ? 'up' : 'neutral'
+  });
+
+  // 技术面
+  factors.push({
+    icon: '📊', bg: 'rgba(79,195,247,0.15)',
+    name: '技术面信号',
+    desc: `MA5=${a.ma5.toFixed(0)}，MA20=${a.ma20.toFixed(0)}，RSI=${a.rsi}。${a.rsi > 70 ? '短期超买，注意回调风险' : a.rsi < 30 ? '短期超卖，可能反弹' : '技术面中性'}。`,
+    impact: a.trend,
+    impactType: a.ma5 > a.ma20 ? 'up' : a.ma5 < a.ma20 ? 'down' : 'neutral'
+  });
+
+  // 持仓与资金
+  factors.push({
+    icon: '💰', bg: 'rgba(38,166,154,0.15)',
+    name: '持仓与资金流向',
+    desc: '关注SHFE白银持仓量变化及ETF持仓数据，资金持续流入通常预示上涨趋势。',
+    impact: a.changePct20 > 0 ? '资金呈流入态势' : '资金有流出迹象',
+    impactType: a.changePct20 > 0 ? 'up' : 'down'
+  });
+
+  return factors;
+}
+
+// 铝影响因素
+function getAluminumFactors(a) {
+  const factors = [];
+
+  // 供给端
+  factors.push({
+    icon: '⚙️', bg: 'rgba(79,195,247,0.15)',
+    name: '电解铝产能与供给',
+    desc: '国内电解铝产能天花板约4500万吨/年，新增产能受限。云南等地丰水期来水情况影响产能利用率，供给端偏紧支撑铝价。',
+    impact: '产能刚性约束，供给偏紧',
+    impactType: 'up'
+  });
+
+  // 成本端
+  factors.push({
+    icon: '⚡', bg: 'rgba(255,183,77,0.15)',
+    name: '电力与氧化铝成本',
+    desc: '电解铝生产耗电量大，电价和氧化铝价格是核心成本。煤价波动、云南水电供应直接影响铝厂生产成本和开工意愿。',
+    impact: a.changePct20 > 0 ? '成本支撑较强' : '成本端有所松动',
+    impactType: a.changePct20 > 0 ? 'up' : 'neutral'
+  });
+
+  // 需求端
+  factors.push({
+    icon: '🏗️', bg: 'rgba(38,166,154,0.15)',
+    name: '下游需求（地产/光伏/新能源车）',
+    desc: '建筑地产用铝占比较大，光伏边框和新能源车轻量化持续拉动铝需求。关注地产政策及新能源产业链景气度。',
+    impact: '新能源需求增长，地产待回暖',
+    impactType: 'up'
+  });
+
+  // 库存
+  factors.push({
+    icon: '📦', bg: 'rgba(120,144,156,0.15)',
+    name: '社会库存变化',
+    desc: '国内铝锭社会库存是反映供需平衡的关键指标。库存下降通常预示价格走强，库存累积则压制价格。',
+    impact: a.trend.includes('强') ? '库存去化，支撑铝价' : '关注库存累积风险',
+    impactType: a.trend.includes('强') ? 'up' : 'neutral'
+  });
+
+  // 技术面
+  factors.push({
+    icon: '📊', bg: 'rgba(79,195,247,0.15)',
+    name: '技术面信号',
+    desc: `MA5=${a.ma5.toFixed(0)}，MA20=${a.ma20.toFixed(0)}，RSI=${a.rsi}。${a.rsi > 70 ? '短期超买' : a.rsi < 30 ? '短期超卖' : '技术面中性'}。20日波动区间 ${a.low20.toFixed(0)}~${a.high20.toFixed(0)}。`,
+    impact: a.trend,
+    impactType: a.ma5 > a.ma20 ? 'up' : a.ma5 < a.ma20 ? 'down' : 'neutral'
+  });
+
+  return factors;
+}
+
+// 宏观因素
+function getMacroFactors(ag, al) {
+  return [
+    {
+      icon: '🏦', bg: 'rgba(79,195,247,0.15)',
+      name: '国内货币政策（LPR/MLF）',
+      desc: '央行降息降准释放流动性，利好大宗商品。关注每月LPR报价及MLF操作，宽松周期利于金属价格走强。',
+      impact: '关注政策宽松力度',
+      impactType: 'neutral'
+    },
+    {
+      icon: '🌍', bg: 'rgba(255,183,77,0.15)',
+      name: '全球经济与制造业PMI',
+      desc: '全球制造业PMI反映工业金属需求景气度。中美欧PMI回升利好铝等工业金属，经济放缓则构成压力。',
+      impact: ag.changePct20 > 0 ? '制造业回暖预期' : '经济放缓压力',
+      impactType: ag.changePct20 > 0 ? 'up' : 'down'
+    },
+    {
+      icon: '💱', bg: 'rgba(38,166,154,0.15)',
+      name: '人民币汇率',
+      desc: '人民币贬值会抬升进口金属成本，推高国内价格。关注中美利差和汇率走势对国内金属定价的影响。',
+      impact: '汇率波动影响进口成本',
+      impactType: 'neutral'
+    },
+    {
+      icon: '📈', bg: 'rgba(120,144,156,0.15)',
+      name: '大宗商品周期',
+      desc: '原油、铜等大宗商品走势反映通胀预期和商品周期，与白银、铝价格有正相关性。关注CRB指数变化。',
+      impact: ag.changePct20 > 0 && al.changePct20 > 0 ? '商品周期上行' : '商品分化',
+      impactType: ag.changePct20 > 0 && al.changePct20 > 0 ? 'up' : 'neutral'
+    }
+  ];
+}
+
+// ======================== 采购建议 ========================
+function generateAdvice(symbol, name, unit) {
+  const data = currentData[symbol];
+  const recent = data.slice(-60);
+  const closes = recent.map(d => d[4]);
+  const current = closes[closes.length - 1];
+
+  const ma5 = avg(closes.slice(-5));
+  const ma20 = avg(closes.slice(-20));
+  const ma60 = avg(closes);
+  const min60 = Math.min(...closes);
+  const max60 = Math.max(...closes);
+
+  // RSI
+  let gains = 0, losses = 0;
+  for (let i = 1; i < closes.length; i++) {
+    const diff = closes[i] - closes[i-1];
+    if (diff > 0) gains += diff; else losses -= diff;
+  }
+  const rs = gains / (losses || 1);
+  const rsi = 100 - 100 / (1 + rs);
+
+  // 价格分位
+  let higherCount = 0;
+  closes.forEach(c => { if (c < current) higherCount++; });
+  const percentile = higherCount / closes.length;
+
+  // 趋势方向
+  const trendUp = ma5 > ma20;
+  const nearBottom = current < min60 * 1.03;
+  const nearTop = current > max60 * 0.97;
+  const belowAvg = current < ma60;
+
+  let level, title, icon, desc, reason;
+
+  if (nearBottom && rsi < 40 && belowAvg) {
+    level = 'buy';
+    title = '建议采购';
+    icon = '✅';
+    desc = `${name}当前价格 ${current.toFixed(0)} 元/${unit}，处于60日相对低位（分位${(percentile*100).toFixed(0)}%），RSI=${rsi.toFixed(0)}偏低，短期有反弹空间。`;
+    reason = `• 价格接近60日低点（${min60.toFixed(0)}），下行空间有限\n• RSI=${rsi.toFixed(0)}，处于超卖区域\n• 当前价低于60日均价（${ma60.toFixed(0)}），估值偏低\n• 适合锁定较低采购成本`;
+  } else if (nearTop && rsi > 65) {
+    level = 'wait';
+    title = '建议观望';
+    icon = '⏳';
+    desc = `${name}当前价格 ${current.toFixed(0)} 元/${unit}，处于60日相对高位（分位${(percentile*100).toFixed(0)}%），RSI=${rsi.toFixed(0)}偏高，追高风险较大。`;
+    reason = `• 价格接近60日高点（${max60.toFixed(0)}），上方空间有限\n• RSI=${rsi.toFixed(0)}，短期超买\n• 当前价高于60日均价（${ma60.toFixed(0)}），估值偏高\n• 建议等待回调后再采购`;
+  } else if (trendUp && rsi > 50 && rsi < 65) {
+    level = 'wait';
+    title = '趋势偏强，按需采购';
+    icon = '⚠️';
+    desc = `${name}当前价格 ${current.toFixed(0)} 元/${unit}，处于上升通道中（MA5>MA20），价格分位${(percentile*100).toFixed(0)}%。趋势向上但未到极端高位。`;
+    reason = `• MA5(${ma5.toFixed(0)}) > MA20(${ma20.toFixed(0)})，短期趋势向上\n• RSI=${rsi.toFixed(0)}，尚未超买\n• 建议按生产需求采购，不宜追涨囤货\n• 可分批采购平摊成本`;
+  } else if (!trendUp && rsi < 50 && rsi > 35) {
+    level = 'hold';
+    title = '趋势偏弱，可分批建仓';
+    icon = '🟡';
+    desc = `${name}当前价格 ${current.toFixed(0)} 元/${unit}，处于下行趋势中（MA5<MA20），价格分位${(percentile*100).toFixed(0)}%。若库存充足可等待企稳信号。`;
+    reason = `• MA5(${ma5.toFixed(0)}) < MA20(${ma20.toFixed(0)})，短期趋势偏弱\n• RSI=${rsi.toFixed(0)}，尚未超卖\n• 若库存可支撑2-3周生产，可等价格企稳再采购\n• 急需时可小批量采购过渡`;
+  } else {
+    level = 'hold';
+    title = '震荡行情，按需采购';
+    icon = '🔵';
+    desc = `${name}当前价格 ${current.toFixed(0)} 元/${unit}，处于震荡区间，价格分位${(percentile*100).toFixed(0)}%，RSI=${rsi.toFixed(0)}。无明确方向信号。`;
+    reason = `• MA5(${ma5.toFixed(0)}) ≈ MA20(${ma20.toFixed(0)})，趋势不明\n• RSI=${rsi.toFixed(0)}，中性区域\n• 60日均价${ma60.toFixed(0)}，当前价${current.toFixed(0)}偏离不大\n• 建议按生产计划正常采购，维持安全库存`;
+  }
+
+  return { level, title, icon, desc, reason, current, ma5, ma20, ma60, rsi, percentile, min60, max60 };
+}
+
+function renderAdvice() {
+  const agAdvice = generateAdvice('AG0', '白银', '千克');
+  const alAdvice = generateAdvice('AL0', '铝杆', '吨');
+
+  document.getElementById('agAdvice').innerHTML = renderAdviceBox(agAdvice);
+  document.getElementById('alAdvice').innerHTML = renderAdviceBox(alAdvice);
+
+  // 综合建议
+  let overallLevel, overallTitle, overallIcon, overallDesc;
+  if ((agAdvice.level === 'buy' || agAdvice.level === 'hold') && (alAdvice.level === 'buy' || alAdvice.level === 'hold')) {
+    overallLevel = 'buy';
+    overallTitle = '整体偏低位，适合补充库存';
+    overallIcon = '✅';
+    overallDesc = `白银和铝杆当前价格均处于相对合理区间，建议结合公司库存情况适度补充原材料。白银价格分位${(agAdvice.percentile*100).toFixed(0)}%，铝杆价格分位${(alAdvice.percentile*100).toFixed(0)}%。`;
+  } else if (agAdvice.level === 'wait' && alAdvice.level === 'wait') {
+    overallLevel = 'wait';
+    overallTitle = '整体偏高，建议延后采购';
+    overallIcon = '⏳';
+    overallDesc = `白银和铝杆价格均处于相对高位，建议消耗现有库存，等待价格回调。白银RSI=${agAdvice.rsi.toFixed(0)}，铝杆RSI=${alAdvice.rsi.toFixed(0)}。`;
+  } else {
+    overallLevel = 'hold';
+    overallTitle = '走势分化，分类施策';
+    overallIcon = '⚖️';
+    overallDesc = `白银${agAdvice.title}，铝杆${alAdvice.title}。建议根据各自品种走势分别制定采购计划，优先采购处于低位的品种。`;
+  }
+
+  document.getElementById('overallAdvice').innerHTML =
+    `<div class="advice-box ${overallLevel}">
+      <div class="advice-header">
+        <span class="advice-icon">${overallIcon}</span>
+        <span class="advice-title">${overallTitle}</span>
+      </div>
+      <div class="advice-desc">${overallDesc}</div>
+    </div>`;
+
+  // 决策指标
+  document.getElementById('decisionMetrics').innerHTML = `
+    <div>🥈 <b>白银</b>：现价 ${agAdvice.current.toFixed(0)} | MA5 ${agAdvice.ma5.toFixed(0)} | MA20 ${agAdvice.ma20.toFixed(0)} | RSI ${agAdvice.rsi.toFixed(0)} | 分位 ${(agAdvice.percentile*100).toFixed(0)}%</div>
+    <div>🪙 <b>铝杆</b>：现价 ${alAdvice.current.toFixed(0)} | MA5 ${alAdvice.ma5.toFixed(0)} | MA20 ${alAdvice.ma20.toFixed(0)} | RSI ${alAdvice.rsi.toFixed(0)} | 分位 ${(alAdvice.percentile*100).toFixed(0)}%</div>
+    <div style="margin-top:6px; color:var(--text-dim); font-size:11px;">
+      <b>指标说明：</b><br>
+      • RSI＜30 超卖（可能反弹），RSI＞70 超买（可能回调）<br>
+      • MA5＞MA20 短期偏强，MA5＜MA20 短期偏弱<br>
+      • 价格分位＜30% 处于相对低位，＞70% 处于相对高位<br>
+      • 分批采购可平摊成本，降低择时风险
+    </div>
+  `;
+}
+
+function renderAdviceBox(a) {
+  return `
+    <div class="advice-box ${a.level}">
+      <div class="advice-header">
+        <span class="advice-icon">${a.icon}</span>
+        <span class="advice-title">${a.title}</span>
+      </div>
+      <div class="advice-desc">${a.desc}</div>
+      <div class="advice-reason">${a.reason.replace(/\n/g, '<br>')}</div>
+    </div>
+  `;
+}
+
+// ======================== 刷新 ========================
+async function refreshData() {
+  const btn = document.getElementById('refreshBtn');
+  btn.classList.add('loading');
+  btn.textContent = '加载中';
+
+  try {
+    await loadData();
+    renderHome();
+    if (document.getElementById('page-chart').classList.contains('active')) {
+      renderPriceChart();
+      renderDistChart();
+      renderStats();
+    }
+    if (document.getElementById('page-factors').classList.contains('active')) renderFactors();
+    if (document.getElementById('page-advice').classList.contains('active')) renderAdvice();
+    showToast('数据已更新');
+  } catch(e) {
+    showToast('更新失败，使用缓存数据');
+  }
+
+  btn.classList.remove('loading');
+  btn.textContent = '刷新';
+}
+
+function showToast(msg) {
+  const toast = document.getElementById('toast');
+  toast.textContent = msg;
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 2000);
+}
+
+// ======================== Service Worker 注册（PWA离线支持）========================
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').then(reg => {
+      console.log('✅ Service Worker 已注册，支持离线使用');
+    }).catch(err => {
+      console.log('⚠️ Service Worker 注册失败:', err);
+    });
+  });
+}
+
+// ======================== 初始化 ========================
+async function init() {
+  await loadData();
+  renderHome();
+  document.getElementById('loadingOverlay').classList.add('hidden');
+  setTimeout(() => {
+    document.getElementById('loadingOverlay').style.display = 'none';
+  }, 300);
+}
+
+// 窗口resize时重绘图表
+window.addEventListener('resize', () => {
+  if (priceChart) priceChart.resize();
+  if (distChart) distChart.resize();
+});
+
+init();
+</script>
+</body>
+</html>
