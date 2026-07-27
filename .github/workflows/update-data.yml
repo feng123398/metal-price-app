@@ -1,0 +1,45 @@
+name: 每日更新金属价格数据
+
+on:
+  # 每天北京时间11:00（UTC 03:00）自动运行
+  # 长江有色铝价约10:40更新，11点采集确保数据已发布
+  schedule:
+    - cron: '0 3 * * 1-5'  # 周一到周五（交易日）
+  # 支持手动触发
+  workflow_dispatch:
+
+permissions:
+  contents: write  # 允许推送到仓库
+
+jobs:
+  update-data:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 安装依赖
+        run: |
+          pip install akshare requests playwright
+          playwright install chromium --with-deps
+
+      - name: 采集最新数据并更新
+        run: |
+          python scripts/update_data.py
+
+      - name: 提交并推送
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          if git diff --staged --quiet; then
+            echo "数据无变化"
+          else
+            git commit -m "自动更新价格数据 $(date -u +%Y-%m-%d)"
+            git push
+          fi
